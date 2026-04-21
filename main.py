@@ -56,7 +56,7 @@ async def handle_start(message: types.Message):
         
     # The URL for the Web App (Must be HTTPS for Telegram Web App)
     # WARNING: Localhost (127.0.0.1) won't load inside Telegram WebApp unless you use ngrok/localtunnel to get https://...
-    app_url = f"https://your-deployed-domain.com/?code={code}"
+    app_url = f"https://telegram-bot-watcher-tvrm.onrender.com/?code={code}"
     
     markup = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🎁 Open Ad & Get Reward", web_app=WebAppInfo(url=app_url))]
