@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unlock Your Reward</title>
+    <!-- Modern Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --primary: #3b82f6;
+            --accent: #8b5cf6;
+            --text-main: #f8fafc;
+            --glass-bg: rgba(30, 41, 59, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.15) 0%, transparent 50%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .container {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 40px;
+            width: 90%;
+            max-width: 420px;
+            text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            transition: all 0.4s ease;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 800;
+            margin-bottom: 10px;
+            background: linear-gradient(to right, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p {
+            color: #94a3b8;
+            font-size: 15px;
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+
+        .ad-box {
+            background: #000;
+            border-radius: 16px;
+            height: 200px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+            margin-bottom: 30px;
+        }
+
+        .ad-placeholder {
+            color: #475569;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .ad-loader {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            width: 0%;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 14px 0 rgba(139, 92, 246, 0.39);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.6);
+        }
+
+        .btn:disabled {
+            background: #334155;
+            color: #64748b;
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: translateY(0);
+        }
+
+        .loader-text {
+            font-size: 24px;
+            font-weight: 800;
+            color: white;
+            display: none;
+            position: absolute;
+        }
+
+        /* Success screen stuff */
+        .success-icon {
+            display: none;
+            font-size: 64px;
+            margin-bottom: 20px;
+            animation: bounceIn 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes bounceIn {
+            0% { transform: scale(0); opacity: 0; }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+    </style>
+    <!-- Ad Network SDK -->
+    <script src='//libtl.com/sdk.js' data-zone='9545978' data-sdk='show_9545978'></script>
+</head>
+<body>
+
+    <div class="container" id="mainContainer">
+        <h1>Unlock Reward 🎁</h1>
+        <p>Watch the sponsor message below to reveal your secret result natively in Telegram.</p>
+
+        <div class="ad-box" id="adBox">
+            <span class="ad-placeholder" id="placeholderText">Sponsor Advertisement</span>
+            <span class="loader-text" id="countdownLabel">5</span>
+            <div class="ad-loader" id="adProgress"></div>
+        </div>
+
+        <button class="btn" id="startBtn" onclick="watchAd()">Start Advertisement</button>
+        
+        <div class="success-icon" id="successIcon">🎉</div>
+        <h1 id="successTitle" style="display: none; margin-top:20px;">Reward Unlocked!</h1>
+        <p id="successDesc" style="display: none;">Check your Telegram bot, your result has been sent successfully.</p>
+    </div>
+
+    <!-- Confetti Script Element -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <script>
+        // Get 'code' parameter from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const userCode = urlParams.get('code');
+
+        const adBox = document.getElementById('adBox');
+        const startBtn = document.getElementById('startBtn');
+        const placeholderText = document.getElementById('placeholderText');
+        const countdownLabel = document.getElementById('countdownLabel');
+        const adProgress = document.getElementById('adProgress');
+
+        // Check if code exists, if not warn the user.
+        if(!userCode) {
+            startBtn.innerText = "Error: Invalid Link";
+            startBtn.disabled = true;
+            document.querySelector('p').innerText = "The link is broken or you did not provide a valid unique code from the Bot.";
+        }
+
+        function watchAd() {
+            // Lock UI
+            startBtn.disabled = true;
+            startBtn.innerText = "Loading Ad...";
+            placeholderText.innerText = "Loading Sponsor...";
+            countdownLabel.style.display = 'none';
+
+            if (typeof show_9545978 === 'function') {
+                show_9545978().then(() => {
+                    // Ad completed
+                    completeAd();
+                }).catch((error) => {
+                    console.error("Ad Error:", error);
+                    alert("Ad could not be loaded. Please disable Adblockers and try again.");
+                    startBtn.innerText = "Try Again";
+                    startBtn.disabled = false;
+                    placeholderText.innerText = "Sponsor Advertisement";
+                });
+            } else {
+                alert("Ad SDK not found. Please refresh page or disable AdBlock.");
+                startBtn.innerText = "Try Again";
+                startBtn.disabled = false;
+                placeholderText.innerText = "Sponsor Advertisement";
+            }
+        }
+
+        async function completeAd() {
+            countdownLabel.style.display = 'none';
+            placeholderText.style.display = 'block';
+            placeholderText.innerText = "Processing...";
+            placeholderText.style.color = "white";
+
+            try {
+                const response = await fetch('/ad-completed', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: userCode })
+                });
+
+                const data = await response.json();
+
+                if(data.status === 'success') {
+                    showSuccess();
+                } else {
+                    alert("Error: " + data.message);
+                    startBtn.innerText = "Try Again";
+                    startBtn.disabled = false;
+                    adProgress.style.width = '0%';
+                }
+            } catch (error) {
+                console.error("Network error:", error);
+                alert("Network error occurred, ensure API is running.");
+                startBtn.innerText = "Try Again";
+                startBtn.disabled = false;
+                adProgress.style.width = '0%';
+            }
+        }
+
+        function showSuccess() {
+            // Fire Confetti!
+            confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 }
+            });
+
+            // Update UI Interface
+            document.getElementById('startBtn').style.display = 'none';
+            document.querySelector('h1').style.display = 'none';
+            document.querySelector('p').style.display = 'none';
+            document.getElementById('adBox').style.display = 'none';
+
+            document.getElementById('successIcon').style.display = 'block';
+            document.getElementById('successTitle').style.display = 'block';
+            document.getElementById('successDesc').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
