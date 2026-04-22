@@ -45,7 +45,7 @@ async def handle_start(message: types.Message):
     # Insert code into supabase (done after send, with message_id)
 
     # Build the Web App URL
-    domain  = os.getenv("WEB_DOMAIN", "https://your-deployed-domain.com")
+    domain  = os.getenv("WEB_DOMAIN", "https://telegram-bot-watcher-tvrm.onrender.com")
     app_url = f"{domain}/?code={code}"
 
     markup = InlineKeyboardMarkup(inline_keyboard=[
