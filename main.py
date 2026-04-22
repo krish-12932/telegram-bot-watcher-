@@ -42,19 +42,7 @@ async def handle_start(message: types.Message):
     code    = shortuuid.uuid()[:8]
     user_id = message.from_user.id
 
-    # Insert fresh code into supabase (each /start creates a brand new code)
-    try:
-        supabase.table("user_sessions").insert({
-            "user_id":     user_id,
-            "unique_code": code,
-            "user_ads":    False          # False = not yet watched
-        }).execute()
-    except Exception as e:
-        print("Supabase Insert Error:", e)
-        await message.answer("Server Error: Unable to generate code right now. Make sure the 'user_sessions' table exists in Supabase.")
-        return
-
-    # Build the Web App URL
+    # Build the Web App URL first
     domain  = os.getenv("WEB_DOMAIN", "https://telegram-bot-watcher-tvrm.onrender.com")
     app_url = f"{domain}/?code={code}"
 
@@ -62,12 +50,26 @@ async def handle_start(message: types.Message):
         [InlineKeyboardButton(text="🎁 Watch Ad & Get Reward", web_app=WebAppInfo(url=app_url))]
     ])
 
-    await message.answer(
+    # Send the message and capture its message_id
+    sent = await message.answer(
         "🎁 *Watch the AD and get your Result!*\n\n"
         "Tap the button below to open the Web App directly inside Telegram 👇",
         parse_mode="Markdown",
         reply_markup=markup
     )
+
+    # Insert code + message_id into supabase
+    try:
+        supabase.table("user_sessions").insert({
+            "user_id":     user_id,
+            "unique_code": code,
+            "user_ads":    False,
+            "message_id":  sent.message_id   # save so we can delete it later
+        }).execute()
+    except Exception as e:
+        print("Supabase Insert Error:", e)
+        # Message already sent — just warn, don't break UX
+        await message.answer("⚠️ Server Error: Unable to save session. Make sure the 'user_sessions' table has a 'message_id' column.")
 
 # ==========================================
 # WEB SERVER LOGIC (API + FRONTEND)
@@ -112,6 +114,15 @@ async def handle_ad_completed(request):
                 {"status": "already_used", "message": "Reward already claimed for this code!"},
                 status=400
             )
+
+        message_id = session.get("message_id")
+
+        # ── Delete original "Watch the AD" message ────────────────
+        if message_id:
+            try:
+                await bot.delete_message(chat_id=user_id, message_id=message_id)
+            except Exception as e:
+                print("Delete Message Error:", e)
 
         # ── Send reward via Telegram ──────────────────────────────
         try:
