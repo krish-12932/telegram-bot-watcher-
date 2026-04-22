@@ -42,7 +42,19 @@ async def handle_start(message: types.Message):
     code    = shortuuid.uuid()[:8]
     user_id = message.from_user.id
 
-    # Build the Web App URL first
+    # Insert code into supabase
+    try:
+        supabase.table("user_sessions").insert({
+            "user_id":     user_id,
+            "unique_code": code,
+            "user_ads":    False
+        }).execute()
+    except Exception as e:
+        print("Supabase Insert Error:", e)
+        await message.answer("Server Error: Unable to generate code right now. Make sure the 'user_sessions' table exists in Supabase.")
+        return
+
+    # Build the Web App URL
     domain  = os.getenv("WEB_DOMAIN", "https://telegram-bot-watcher-tvrm.onrender.com")
     app_url = f"{domain}/?code={code}"
 
@@ -50,7 +62,7 @@ async def handle_start(message: types.Message):
         [InlineKeyboardButton(text="🎁 Watch Ad & Get Reward", web_app=WebAppInfo(url=app_url))]
     ])
 
-    # Send the message and capture its message_id
+    # Send message and save its message_id so we can edit it later
     sent = await message.answer(
         "🎁 *Watch the AD and get your Result!*\n\n"
         "Tap the button below to open the Web App directly inside Telegram 👇",
@@ -64,12 +76,12 @@ async def handle_start(message: types.Message):
             "user_id":     user_id,
             "unique_code": code,
             "user_ads":    False,
-            "message_id":  sent.message_id   # save so we can delete it later
+            "message_id":  sent.message_id
         }).execute()
     except Exception as e:
         print("Supabase Insert Error:", e)
-        # Message already sent — just warn, don't break UX
-        await message.answer("⚠️ Server Error: Unable to save session. Make sure the 'user_sessions' table has a 'message_id' column.")
+        await message.answer("Server Error: Unable to generate code right now. Make sure the 'user_sessions' table exists in Supabase.")
+        return
 
 # ==========================================
 # WEB SERVER LOGIC (API + FRONTEND)
@@ -117,17 +129,11 @@ async def handle_ad_completed(request):
 
         message_id = session.get("message_id")
 
-        # ── Delete original "Watch the AD" message ────────────────
-        if message_id:
-            try:
-                await bot.delete_message(chat_id=user_id, message_id=message_id)
-            except Exception as e:
-                print("Delete Message Error:", e)
-
-        # ── Send reward via Telegram ──────────────────────────────
+        # ── Edit original /start message with the result (same message, replaced) ──
         try:
-            await bot.send_message(
+            await bot.edit_message_text(
                 chat_id=user_id,
+                message_id=message_id,
                 text=(
                     "🎉 *Reward Unlocked!*\n\n"
                     "✅ Ad watch complete ho gaya!\n\n"
@@ -135,11 +141,26 @@ async def handle_ad_completed(request):
                     "━━━━━━━━━━━━━━━━━━━━\n"
                     "⚡ Powered by BIBX Bot"
                 ),
-                parse_mode="Markdown"
+                parse_mode="Markdown",
+                reply_markup=None   # button bhi hata do
             )
         except Exception as e:
-            print("Bot Send Error:", e)
-            # Still proceed to delete code even if message fails
+            print("Edit Message Error:", e)
+            # Fallback: agar edit fail ho toh naya message bhejo
+            try:
+                await bot.send_message(
+                    chat_id=user_id,
+                    text=(
+                        "🎉 *Reward Unlocked!*\n\n"
+                        "✅ Ad watch complete ho gaya!\n\n"
+                        "🔓 *Your Result:* `I LOVE YOU MARI JAAN`\n\n"
+                        "━━━━━━━━━━━━━━━━━━━━\n"
+                        "⚡ Powered by BIBX Bot"
+                    ),
+                    parse_mode="Markdown"
+                )
+            except Exception as e2:
+                print("Fallback Send Error:", e2)
 
         # ── ONE-TIME USE: Delete code from DB ────────────────────
         try:
