@@ -55,7 +55,7 @@ async def handle_start(message: types.Message):
         return
 
     # Build the Web App URL
-    domain  = os.getenv("WEB_DOMAIN", "https://your-deployed-domain.com")
+    domain  = os.getenv("WEB_DOMAIN", "https://telegram-bot-watcher-tvrm.onrender.com")
     app_url = f"{domain}/?code={code}"
 
     markup = InlineKeyboardMarkup(inline_keyboard=[
