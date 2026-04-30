@@ -1,11 +1,18 @@
 import asyncio
 import os
+import threading
+import time
+import urllib.request
+import logging
 import shortuuid
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import CommandStart
 from aiohttp import web
 from dotenv import load_dotenv
 from supabase import create_client, Client
+
+logging.basicConfig(format="%(asctime)s [%(levelname)s] %(message)s", level=logging.INFO)
+log = logging.getLogger("MAIN")
 
 # Load environment variables
 load_dotenv()
@@ -45,7 +52,7 @@ async def handle_start(message: types.Message):
     # Insert code into supabase (done after send, with message_id)
 
     # Build the Web App URL
-    domain  = os.getenv("WEB_DOMAIN", "https://telegram-bot-watcher-tvrm.onrender.com")
+    domain  = os.getenv("WEB_DOMAIN", "https://your-deployed-domain.com")
     app_url = f"{domain}/?code={code}"
 
     markup = InlineKeyboardMarkup(inline_keyboard=[
@@ -182,7 +189,27 @@ async def start_web_server():
     print(f"🚀 Web server started on port {port}")
 
 
+def keep_awake_pinger():
+    """Pings own Render URL every 10 minutes so the free instance never sleeps."""
+    my_url = os.environ.get("RENDER_EXTERNAL_URL")
+    if not my_url:
+        log.warning("⚠️ No RENDER_EXTERNAL_URL found. Auto-ping disabled (running locally).")
+        return
+    log.info(f"✅ Auto-pinger started — will ping {my_url} every 10 minutes.")
+    while True:
+        try:
+            time.sleep(10 * 60)   # wait 10 minutes
+            log.info(f"🔄 Auto-Knock: Pinging {my_url} to stay awake...")
+            urllib.request.urlopen(my_url)
+        except Exception as e:
+            log.error(f"❌ Auto-Knock Failed: {e}")
+
+
 async def main():
+    # Start auto-pinger in background thread (keeps Render free instance awake)
+    pinger_thread = threading.Thread(target=keep_awake_pinger, daemon=True)
+    pinger_thread.start()
+
     await start_web_server()
 
     if bot:
